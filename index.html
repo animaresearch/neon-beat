@@ -102,12 +102,13 @@ canvas{display:block}
 <div id="nowplay" class="nowplay hid"><img id="nowArt" alt="cover"><div><div class="t" id="nowTitle">NEON BEAT</div><div class="s" id="nowSub">곡을 고르세요</div></div></div>
 <div id="menuOv" class="ov">
 <h1>NEON BEAT</h1><div class="sub">9KEY RHYTHM GAME</div>
-<div class="flavor">E드라이브에 있던 만들다 만 리듬게임을 살렸습니다. 커버를 고르고 START. 키는 W A S D SPACE J K L I, 마우스로 레인을 눌러도 됩니다.</div>
+<div class="flavor">E드라이브에 있던 만들다 만 리듬게임을 살렸습니다. 커버를 고르고 START. 키는 W A S D SPACE J K L I, AUTO PLAY가 기본입니다. 박자 못 맞춰도 노트가 알아서 칩니다. 끄면 직접 칩니다.</div>
 <div id="covers" class="covers"></div>
 <div class="sel-row"><select id="trackSel"><option value="">-- 곡 목록 불러오는 중 --</option></select></div>
 <div id="localDropZone" class="drop-zone" tabindex="0" role="button" aria-controls="localFileInput" aria-label="오디오 파일을 선택하거나 여기에 놓으세요">오디오 파일을 여기에 놓거나 클릭하세요 (MP3, WAV, FLAC, OGG, M4A)<input id="localFileInput" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,audio/*"></div>
 <div class="sel-row"><span>난이도</span><button class="mbtn diff on" data-v="easy">EASY</button><button class="mbtn diff" data-v="normal">NORMAL</button><button class="mbtn diff" data-v="hard">HARD</button></div>
 <div class="sel-row"><span>속도</span><button class="mbtn spd" data-v="3">x3</button><button class="mbtn spd on" data-v="5">x5</button><button class="mbtn spd" data-v="7">x7</button><button class="mbtn spd" data-v="9">x9</button></div>
+<div class="sel-row"><span>모드</span><button class="mbtn auto on" id="autoBtn" type="button">AUTO PLAY ON</button></div>
 <div class="tinfo" id="tinfo"></div>
 <button class="sbtn" id="sbtn" disabled>START</button>
 <div style="margin-top:22px;text-align:center;line-height:2.2">
@@ -173,7 +174,7 @@ let W,H,cv,canvas,ctx,mode="menu",tracks=[],audioBuf=null,chart=[],chartIdx=0;
 let score=0,combo=0,maxCombo=0,npf=0,ngr=0,nms=0,diff="easy",spdMul=5,loaded=false,running=false,paused=false;
 let songStart=0,totalDur=0,sourceNode=null,ani=0,keyMap={},activeNotes=[],judges=[],held=new Set();
 let curOfs=0,audioEnded=false,starting=false,sessionToken=0;
-let loadToken=0,loadController=null,selectedTrackIndex=null,selectedLocalFile=null;
+let loadToken=0,loadController=null,selectedTrackIndex=null,selectedLocalFile=null,autoPlay=true;
 for(let i=0;i<KEYS.length;i++)keyMap[KEYS[i]]=i;
 window.__NEON_BEAT_DIAGNOSTICS__=Object.freeze({
  keys:Object.freeze(KEYS.slice()),
@@ -436,7 +437,13 @@ function initMenuUI(){
    let built=await buildChart(audioBuf,token);if(!built||token!==loadToken)return;loaded=true;onReady(token);}
  });
  document.querySelectorAll(".spd").forEach(b=>b.onclick=()=>{document.querySelectorAll(".spd").forEach(x=>x.classList.remove("on"));b.classList.add("on");spdMul=parseInt(b.dataset.v);});
- document.getElementById("sbtn").onclick=startGame;
+  document.getElementById("autoBtn").onclick=()=>{
+  autoPlay=!autoPlay;
+  let b=document.getElementById("autoBtn");
+  b.classList.toggle("on", autoPlay);
+  b.textContent=autoPlay?"AUTO PLAY ON":"AUTO PLAY OFF";
+ };
+document.getElementById("sbtn").onclick=startGame;
   document.getElementById("loadRetryBtn").onclick=()=>{
    if(selectedLocalFile)loadLocalFile(selectedLocalFile);
    else if(selectedTrackIndex!==null)onTrackChange();
@@ -484,7 +491,7 @@ async function startGame(){
   sourceNode.connect(gain);gain.connect(AC.destination);
   sourceNode.onended=()=>{if(token===sessionToken)audioEnded=true;};
   sourceNode.start(0);songStart=AC.currentTime;running=true;
-  document.getElementById("menuOv").classList.add("hid");document.getElementById("resultOv").classList.add("hid");document.getElementById("pauseOv").classList.add("hid"); setNowPlaying(audioBuf&&audioBuf._src, diff.toUpperCase()+" · x"+spdMul);
+  document.getElementById("menuOv").classList.add("hid");document.getElementById("resultOv").classList.add("hid");document.getElementById("pauseOv").classList.add("hid"); setNowPlaying(audioBuf&&audioBuf._src, diff.toUpperCase()+" · x"+spdMul+(autoPlay?" · AUTO":""));
  }finally{starting=false;}
 }
 function togglePause(){
@@ -514,6 +521,15 @@ function endGame(){
  document.getElementById("rAc").textContent=acc+"%";
 }
 
+
+function autoHitNotes(){
+ if(!autoPlay) return;
+ for(let n of activeNotes){
+  if(n.resolvedAt!==null) continue;
+  if(n.t-curOfs>0.012) continue;
+  tapLane(n.lane);
+ }
+}
 function loop(ts){
  if(running&&!paused){
   curOfs=AC.currentTime-songStart;if(curOfs<0)curOfs=0;
@@ -522,6 +538,7 @@ function loop(ts){
    let n=chart[chartIdx++];activeNotes.push({...n,y:-30,hit:false,missed:false,resolvedAt:null});
   }
   let hy=lay().hy;
+  autoHitNotes();
   for(let n of activeNotes){
    let dt=n.t-curOfs;n.y=hy-dt*120*(spdMul/5);
    if(n.resolvedAt===null&&curOfs-n.t>JUDGEMENT.GREAT/1000){n.missed=true;n.resolvedAt=performance.now();nms++;combo=0;judges.push({lane:n.lane,type:"miss",life:20});}
