@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+index.html.orig
+_game.js
+_polish.py
+_write_readme.py
+_write_run.py
+_write_gitignore.py
+_patch_paths.py

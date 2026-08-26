@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>NEON BEAT — 9K RHYTHM GAME</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+KR:wght@400;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06060f;--bg2:#0c0c1a;--bg3:#141428;--cyan:#00e5ff;--cyan2:#00bfcc;--magenta:#ff0066;--magenta2:#cc0052;--gold:#ffd700;--gold2:#ccaa00;--white:#e0e0f0;--dim:#6a6a8a;--border:#1e1e3a}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Noto Sans KR','Segoe UI',sans-serif;user-select:none;color:var(--white)}
+canvas{display:block}
+/* Overlays */
+.ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#0c0c1a88 0%,#06060f 70%);color:var(--white);z-index:10;backdrop-filter:blur(6px)}
+.ov.hid{display:none}
+/* Title */
+.ov h1{font-family:'Orbitron',sans-serif;font-size:58px;font-weight:900;letter-spacing:6px;color:var(--cyan);text-shadow:0 0 40px #00e5ff44,0 0 80px #00e5ff22;margin-bottom:0;animation:titlePulse 3s ease-in-out infinite;position:relative}
+.ov h1::after{content:'NEON BEAT';position:absolute;left:2px;top:0;color:var(--magenta);opacity:.35;text-shadow:0 0 20px #ff006644;animation:titleGlitch 4s ease-in-out infinite;pointer-events:none}
+@keyframes titlePulse{0%,100%{text-shadow:0 0 40px #00e5ff44,0 0 80px #00e5ff22}50%{text-shadow:0 0 60px #00e5ff66,0 0 120px #00e5ff33}}
+@keyframes titleGlitch{0%,94%,100%{opacity:.35;transform:translate(0)}95%{opacity:.7;transform:translate(-3px,1px)}96%{opacity:.2;transform:translate(4px,-1px)}97%{opacity:.8;transform:translate(-1px,0)}}
+.sub{font-family:'JetBrains Mono',monospace;color:var(--dim);font-size:12px;margin-bottom:32px;letter-spacing:4px;text-transform:uppercase;border:1px solid var(--border);padding:6px 20px;border-radius:2px}
+/* Select rows */
+.sel-row{display:flex;gap:12px;margin-bottom:18px;align-items:center;flex-wrap:wrap;justify-content:center}
+.sel-row select{padding:10px 16px;font-size:13px;font-family:'Noto Sans KR',sans-serif;background:var(--bg2);color:var(--white);border:1px solid var(--border);border-radius:3px;min-width:280px;cursor:pointer;outline:none;transition:border-color .2s}
+.sel-row select:focus{border-color:var(--cyan)}
+.sel-row select option{background:var(--bg2);color:var(--white)}
+.drop-zone{width:min(500px,88vw);margin:-4px auto 14px;padding:12px 16px;border:1px dashed var(--border);border-radius:3px;color:var(--dim);font-size:12px;text-align:center;cursor:pointer;outline:none;transition:all .15s}
+.drop-zone:hover,.drop-zone.drag-active{border-color:var(--cyan);color:var(--cyan);background:#00e5ff08;box-shadow:0 0 16px #00e5ff18}
+.drop-zone:focus{border-color:var(--cyan);box-shadow:0 0 0 2px #00e5ff33}
+.drop-zone.has-file{border-color:var(--magenta);color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drop-zone.compact{padding:7px 12px;font-size:11px;margin-bottom:10px}
+.drop-zone input{display:none}
+.mbtn{padding:9px 20px;font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;background:var(--bg2);color:var(--dim);border:1px solid var(--border);border-radius:3px;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:1px}
+.mbtn:hover{border-color:var(--cyan);color:var(--cyan);background:#00e5ff08}
+.mbtn.on{border-color:var(--cyan);color:var(--cyan);background:#00e5ff11;box-shadow:0 0 12px #00e5ff22}
+/* Start button */
+.sbtn{margin-top:18px;padding:16px 64px;font-size:16px;font-weight:700;font-family:'Orbitron',sans-serif;letter-spacing:4px;background:transparent;color:var(--cyan);border:2px solid var(--cyan);border-radius:3px;cursor:pointer;transition:all .2s;opacity:.3;pointer-events:none;text-transform:uppercase;position:relative;overflow:hidden}
+.sbtn.rdy{opacity:1;pointer-events:auto;animation:btnGlow 2s ease-in-out infinite}
+.sbtn.rdy:hover{background:#00e5ff11;box-shadow:0 0 30px #00e5ff33,inset 0 0 30px #00e5ff11;transform:translateY(-1px)}
+.sbtn.rdy:active{transform:translateY(1px)}
+@keyframes btnGlow{0%,100%{box-shadow:0 0 20px #00e5ff22}50%{box-shadow:0 0 40px #00e5ff44}}
+.tinfo{margin-top:14px;font-size:12px;color:var(--dim);max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono',monospace}
+/* Load / Pause / Result */
+#loadOv h2{font-family:'Orbitron',sans-serif;font-size:24px;margin-bottom:10px;color:var(--cyan);text-shadow:0 0 20px #00e5ff33}
+#loadSt{color:var(--dim);font-size:13px;font-family:'JetBrains Mono',monospace}
+#pauseOv h1{font-family:'Orbitron',sans-serif;font-size:48px;color:var(--gold);text-shadow:0 0 30px #ffd70044}
+.rbtn{padding:12px 40px;margin:0 8px;font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;background:transparent;color:var(--white);border:1px solid var(--border);border-radius:3px;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:2px}
+.rbtn:hover{border-color:var(--cyan);color:var(--cyan);background:#00e5ff08}
+#resultOv h2{font-family:'Orbitron',sans-serif;font-size:36px;font-weight:900;margin-bottom:4px;color:var(--cyan)}
+#grade{font-family:'Orbitron',sans-serif;font-size:100px;font-weight:900;line-height:1.1}
+.stbl{margin:18px 0;font-size:14px;color:var(--dim)}
+.stbl td{padding:4px 16px;font-family:'JetBrains Mono',monospace}
+.stbl td:last-child{font-weight:700;color:var(--white);text-align:right}
+.gS{color:var(--gold);text-shadow:0 0 30px #ffd70066}.gA{color:var(--cyan);text-shadow:0 0 30px #00e5ff66}.gB{color:#5dff5d}.gC{color:#ffa04a}.gF{color:#ff4a4a}
+/* Key hints */
+.key-hint{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:2px;font-weight:700;font-size:13px;margin:0 3px;background:var(--bg2);border:1px solid var(--border);color:var(--dim);font-family:'JetBrains Mono',monospace}
+.key-hint.kl{color:var(--magenta);border-color:#ff006640;text-shadow:0 0 10px #ff006633}
+.key-hint.kc{color:var(--gold);border-color:#ffd70040;font-size:10px;text-shadow:0 0 10px #ffd70033}
+.key-hint.kr{color:var(--cyan);border-color:#00e5ff40;text-shadow:0 0 10px #00e5ff33}
+/* Label row */
+.sel-row span[style]{color:var(--dim)!important;font-family:'JetBrains Mono',monospace;font-size:11px!important;text-transform:uppercase;letter-spacing:2px}
+@media (max-width:700px){
+ html,body{overflow:hidden}
+ .ov{justify-content:flex-start;overflow-y:auto;overflow-x:hidden;padding:24px 3vw 28px}
+ .ov h1{font-size:clamp(30px,10vw,48px);letter-spacing:3px}
+ .sub{margin-bottom:18px;padding:5px 12px}
+ .sel-row{gap:7px;margin-bottom:10px}
+ .sel-row select{min-width:0;width:92vw;padding:8px 10px}
+ .drop-zone{width:94vw;margin:-2px auto 10px;padding:10px 8px}
+ .mbtn{padding:7px 11px;font-size:11px}
+ .sbtn{margin-top:10px;padding:12px 42px}
+ #grade{font-size:72px}
+ #resultOv h2{font-size:28px}
+ .rbtn{padding:10px 24px;margin:0 4px}
+}
+@media (max-height:700px){
+ .ov{justify-content:flex-start;overflow-y:auto;padding-top:14px;padding-bottom:20px}
+ .ov h1{font-size:clamp(28px,8vw,44px)}
+ .sub{margin-bottom:12px}
+ .sel-row{margin-bottom:7px}
+ .drop-zone{margin-bottom:7px;padding:7px 8px}
+ .sbtn{margin-top:7px;padding:10px 36px}
+ #grade{font-size:64px}
+}
+
+#wrap{position:relative;width:100%;height:100%}
+.hero-bg{position:absolute;inset:0;background:url('assets/hero.png') center/cover no-repeat;opacity:.38;filter:saturate(1.2) contrast(1.05);z-index:0;pointer-events:none}
+#cv{position:relative;z-index:1}
+.covers{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,118px));gap:12px;margin:4px auto 16px;justify-content:center;width:min(560px,92vw)}
+.cover{width:118px;border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;background:#0c0c1acc;transition:transform .15s,border-color .15s,box-shadow .15s;text-align:left;padding:0;color:inherit;font:inherit}
+.cover img{width:118px;height:118px;object-fit:cover;display:block}
+.cover .cap{padding:8px 8px 10px;font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cover.on{border-color:var(--cyan);box-shadow:0 0 18px #00e5ff44;transform:translateY(-4px)}
+.cover:hover{border-color:#00e5ff88}
+.nowplay{position:absolute;left:16px;top:14px;display:flex;gap:10px;align-items:center;z-index:6;pointer-events:none;background:#06060fcc;border:1px solid #1e1e3a;border-radius:12px;padding:8px 12px 8px 8px;backdrop-filter:blur(8px)}
+.nowplay.hid{display:none}
+.nowplay img{width:58px;height:58px;object-fit:cover;border-radius:8px;border:1px solid #00e5ff55}
+.nowplay .t{font-family:'Orbitron',sans-serif;color:var(--cyan);font-size:13px;letter-spacing:1px}
+.nowplay .s{font-family:'JetBrains Mono',monospace;color:var(--dim);font-size:11px;margin-top:3px}
+.flavor{max-width:540px;margin:0 auto 10px;color:var(--dim);font-size:12px;text-align:center;line-height:1.55}
+
+</style></head><body>
+<div id="wrap"><div class="hero-bg"></div><canvas id="cv"></canvas>
+<div id="nowplay" class="nowplay hid"><img id="nowArt" alt="cover"><div><div class="t" id="nowTitle">NEON BEAT</div><div class="s" id="nowSub">곡을 고르세요</div></div></div>
+<div id="menuOv" class="ov">
+<h1>NEON BEAT</h1><div class="sub">9KEY RHYTHM GAME</div>
+<div class="flavor">E드라이브에 있던 만들다 만 리듬게임을 살렸습니다. 커버를 고르고 START. 키는 W A S D SPACE J K L I, 마우스로 레인을 눌러도 됩니다.</div>
+<div id="covers" class="covers"></div>
+<div class="sel-row"><select id="trackSel"><option value="">-- 곡 목록 불러오는 중 --</option></select></div>
+<div id="localDropZone" class="drop-zone" tabindex="0" role="button" aria-controls="localFileInput" aria-label="오디오 파일을 선택하거나 여기에 놓으세요">오디오 파일을 여기에 놓거나 클릭하세요 (MP3, WAV, FLAC, OGG, M4A)<input id="localFileInput" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,audio/*"></div>
+<div class="sel-row"><span>난이도</span><button class="mbtn diff on" data-v="easy">EASY</button><button class="mbtn diff" data-v="normal">NORMAL</button><button class="mbtn diff" data-v="hard">HARD</button></div>
+<div class="sel-row"><span>속도</span><button class="mbtn spd" data-v="3">x3</button><button class="mbtn spd on" data-v="5">x5</button><button class="mbtn spd" data-v="7">x7</button><button class="mbtn spd" data-v="9">x9</button></div>
+<div class="tinfo" id="tinfo"></div>
+<button class="sbtn" id="sbtn" disabled>START</button>
+<div style="margin-top:22px;text-align:center;line-height:2.2">
+<div><span class="key-hint kl">W</span><span class="key-hint kl">A</span><span class="key-hint kl">S</span><span class="key-hint kl">D</span> <span class="key-hint kc">SPC</span> <span class="key-hint kr">J</span><span class="key-hint kr">K</span><span class="key-hint kr">L</span><span class="key-hint kr">I</span></div>
+<div style="font-size:10px;color:var(--dim);margin-top:2px;font-family:'JetBrains Mono',monospace">ESC = PAUSE</div></div></div>
+<div id="loadOv" class="ov hid"><h2>분석 중...</h2><div id="loadSt"></div><div id="loadActions" style="margin-top:18px;display:none"><button class="rbtn" id="loadRetryBtn">RETRY</button><button class="rbtn" id="loadMenuBtn">메뉴로</button></div></div>
+<div id="pauseOv" class="ov hid"><h1>PAUSED</h1><button class="rbtn" id="resBtn">계속 (ESC)</button><button class="rbtn" id="quitBtn" style="margin-top:12px">메뉴로</button></div>
+<div id="resultOv" class="ov hid"><h2>RESULT</h2><div id="grade" class="gS">S</div>
+<table class="stbl"><tr><td>점수</td><td id="rSc">0</td></tr><tr><td>최대 콤보</td><td id="rCb">0</td></tr><tr><td>PERFECT</td><td id="rPf">0</td></tr><tr><td>GREAT</td><td id="rGr">0</td></tr><tr><td>MISS</td><td id="rMs">0</td></tr><tr><td>정확도</td><td id="rAc">0%</td></tr></table>
+<div><button class="rbtn" id="retryBtn">RETRY</button><button class="rbtn" id="menuBtn">곡 선택</button></div></div></div>
+<script>
+// ===================== ANIMA BEAT ENGINE =====================
+
+const COVER_ART={
+ "Okay Okay.wav":"assets/cover-okay.png",
+ "Playlist_20+.wav":"assets/cover-playlist.png",
+ "마지막 정류장.wav":"assets/cover-station.png",
+ "빙글빙글.wav":"assets/cover-spin.png"
+};
+const TRACK_TITLE={
+ "Okay Okay.wav":"Okay Okay",
+ "Playlist_20+.wav":"Playlist 20+",
+ "마지막 정류장.wav":"마지막 정류장",
+ "빙글빙글.wav":"빙글빙글"
+};
+const ART={hero:null,covers:{}};
+function artFor(name){return COVER_ART[name]||"assets/hero.png";}
+function titleFor(name){return TRACK_TITLE[name]||(name||"LOCAL FILE").replace(/\.[^.]+$/,"");}
+function loadArt(){
+ ART.hero=new Image(); ART.hero.src="assets/hero.png";
+ Object.entries(COVER_ART).forEach(([k,src])=>{const im=new Image(); im.src=src; ART.covers[k]=im;});
+}
+function setNowPlaying(name, sub){
+ const box=document.getElementById("nowplay"), img=document.getElementById("nowArt");
+ if(!box) return;
+ document.getElementById("nowTitle").textContent=titleFor(name);
+ document.getElementById("nowSub").textContent=sub||"READY";
+ img.src=artFor(name);
+ box.classList.remove("hid");
+}
+function hideNowPlaying(){const box=document.getElementById("nowplay"); if(box) box.classList.add("hid");}
+function renderCovers(){
+ const box=document.getElementById("covers"); if(!box) return;
+ box.innerHTML="";
+ tracks.forEach((t,i)=>{
+  const b=document.createElement("button"); b.type="button"; b.className="cover"+(selectedTrackIndex===i?" on":"");
+  b.innerHTML='<img alt="" src="'+artFor(t.name)+'"><div class="cap">'+titleFor(t.name)+'</div>';
+  b.onclick=()=>{document.getElementById("trackSel").value=String(i); onTrackChange(); markCover(i);};
+  box.appendChild(b);
+ });
+}
+function markCover(i){
+ document.querySelectorAll(".cover").forEach((el,idx)=>el.classList.toggle("on", idx===i));
+}
+const AC=new(window.AudioContext||window.webkitAudioContext)();
+const KEYS=Object.freeze(["w","a","s","d"," ","j","k","l","i"]);
+const KEY_LBL=Object.freeze(["W","A","S","D","SPC","J","K","L","I"]);
+const JUDGEMENT=Object.freeze({PERFECT:55,GREAT:110});
+const GRADE_THRESHOLDS=Object.freeze({S:95,A:85,B:70,C:55});
+const LANE_CLR=["#ff0066","#ff3388","#ff66aa","#ff99cc","#ffd700","#00e5ff","#33eaff","#66f0ff","#99f5ff"];
+const NOTE_RESOLVED_HOLD_MS=180;
+let W,H,cv,canvas,ctx,mode="menu",tracks=[],audioBuf=null,chart=[],chartIdx=0;
+let score=0,combo=0,maxCombo=0,npf=0,ngr=0,nms=0,diff="easy",spdMul=5,loaded=false,running=false,paused=false;
+let songStart=0,totalDur=0,sourceNode=null,ani=0,keyMap={},activeNotes=[],judges=[],held=new Set();
+let curOfs=0,audioEnded=false,starting=false,sessionToken=0;
+let loadToken=0,loadController=null,selectedTrackIndex=null,selectedLocalFile=null;
+for(let i=0;i<KEYS.length;i++)keyMap[KEYS[i]]=i;
+window.__NEON_BEAT_DIAGNOSTICS__=Object.freeze({
+ keys:Object.freeze(KEYS.slice()),
+ labels:Object.freeze(KEY_LBL.slice()),
+ judgement:Object.freeze({...JUDGEMENT}),
+ gradeThresholds:Object.freeze({...GRADE_THRESHOLDS}),
+ snapshot:()=>Object.freeze({
+  mode,paused,score,combo,maxCombo,perfect:npf,great:ngr,miss:nms,
+  difficulty:diff,speed:spdMul,loaded,chartIndex:chartIdx,totalDuration:totalDur,
+  activeNotesCount:activeNotes.length,running,starting,audioEnded,sessionToken,
+  unresolvedNotesCount:activeNotes.filter(n=>n.resolvedAt===null).length
+ })
+});
+
+window.onload=()=>{cv=document.getElementById("cv");canvas=cv;ctx=cv.getContext("2d");resize();loadArt();fetchTracks();initMenuUI();loop(0);};
+function resize(){
+ W=window.innerWidth;H=window.innerHeight;
+ let dpr=Math.min(2,Math.max(1,window.devicePixelRatio||1));
+ let pw=Math.round(W*dpr),ph=Math.round(H*dpr);
+ if(cv.width!==pw||cv.height!==ph){cv.width=pw;cv.height=ph;}
+ cv.style.width=W+"px";cv.style.height=H+"px";
+ ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.onresize=resize;
+function lay(){let pw=Math.min(720,W<700?W*.96:W*.78),x0=(W-pw)/2,lw=pw/9;return{x0,pw,lw,hy:Math.max(220,H-110)};}
+
+async function fetchTracks(){
+ try{let r=await fetch("/api/tracks");tracks=await r.json();
+  if(!Array.isArray(tracks)) tracks=[];
+  let sel=document.getElementById("trackSel");sel.innerHTML='<option value="">-- 곡 선택 --</option>';
+  tracks.forEach((t,i)=>{let o=document.createElement("option");o.value=i;o.textContent=titleFor(t.name)+"  ·  "+t.name;sel.appendChild(o);});
+  sel.onchange=()=>{onTrackChange(); markCover(selectedTrackIndex);};
+  renderCovers();
+ }catch(e){document.getElementById("trackSel").innerHTML='<option value="">서버 연결 실패</option>';}
+}
+function onTrackChange(){
+ let sel=document.getElementById("trackSel"),tinfo=document.getElementById("tinfo"),sbtn=document.getElementById("sbtn");
+ clearLocalFile();
+ sbtn.classList.remove("rdy");sbtn.disabled=true;loaded=false;
+ let token=++loadToken;if(loadController)loadController.abort();loadController=null;
+ if(sel.value===""){selectedTrackIndex=null;tinfo.textContent="";hideLoad();return;}
+ let idx=Number(sel.value);
+ if(!Number.isInteger(idx)||!tracks[idx]){selectedTrackIndex=null;tinfo.textContent="";hideLoad();return;}
+ selectedTrackIndex=idx;
+ let t=tracks[idx];tinfo.textContent=titleFor(t.name)+"  ["+(t.size/(1048576)).toFixed(1)+" MB]"; setNowPlaying(t.name, "분석 대기"); markCover(idx);
+ loadAndChart(idx,token);
+}
+function cancelPendingLoad(){
+ loadToken++;
+ if(loadController){loadController.abort();loadController=null;}
+ loaded=false;audioBuf=null;
+ let sbtn=document.getElementById("sbtn");
+ sbtn.classList.remove("rdy");sbtn.disabled=true;
+}
+function resetLocalZone(){
+ let input=document.getElementById("localFileInput"),zone=document.getElementById("localDropZone");
+ if(input)input.value="";
+ if(zone){
+  zone.textContent="오디오 파일을 여기에 놓거나 클릭하세요 (MP3, WAV, FLAC, OGG, M4A)";
+  if(input)zone.appendChild(input);
+  zone.classList.remove("has-file","compact","drag-active");
+ }
+}
+function clearLocalFile(){selectedLocalFile=null;resetLocalZone();}
+function rejectLocalSelection(message){
+ cancelPendingLoad();clearLocalFile();selectedTrackIndex=null;
+ let sel=document.getElementById("trackSel");
+ sel.value="";document.getElementById("tinfo").textContent="";
+ resetLocalZone();showLoad(message||"지원하지 않는 오디오 파일입니다.");
+ document.getElementById("loadActions").style.display="block";
+}
+function currentLocalError(){
+ cancelPendingLoad();
+ showLoad("오디오 파일을 불러오지 못했습니다. 다시 시도하거나 메뉴로 돌아가세요.");
+ document.getElementById("loadActions").style.display="block";
+}
+async function loadLocalFile(file){
+ if(!file||!file.name||file instanceof FileList)return rejectLocalSelection("오디오 파일을 하나만 선택하세요.");
+ let ext=file.name.split(".").pop().toLowerCase();
+ if(!["mp3","wav","flac","ogg","m4a"].includes(ext))return rejectLocalSelection("지원하지 않는 오디오 파일입니다.");
+ selectedLocalFile=file;selectedTrackIndex=null;
+ document.getElementById("trackSel").value="";
+ document.getElementById("tinfo").textContent=file.name;
+ let zone=document.getElementById("localDropZone"),input=document.getElementById("localFileInput");
+ zone.textContent=file.name;if(input)zone.appendChild(input);
+ zone.classList.add("has-file","compact");
+ cancelPendingLoad();let token=loadToken;
+ showLoad("음악을 불러오는 중...");
+ try{
+  let arrBuf=await file.arrayBuffer();if(token!==loadToken)return;
+  let decoded=await AC.decodeAudioData(arrBuf);if(token!==loadToken)return;
+  showLoad("비트 분석 중...");
+  let built=await buildChart(decoded,token);if(!built||token!==loadToken)return;
+  decoded._src=file.name;audioBuf=decoded;loaded=true;setNowPlaying(file.name, chart.length+" NOTES"); onReady(token);
+ }catch(e){if(token!==loadToken)return;currentLocalError();}
+}
+async function loadAndChart(idx,token){
+ let t=tracks[idx];if(!t||token!==loadToken)return;
+ loadController=new AbortController();let controller=loadController;
+ showLoad("음악을 불러오는 중...");
+ try{
+  let resp=await fetch("/musik/"+encodeURIComponent(t.name),{signal:controller.signal});
+  if(!resp.ok)throw new Error("HTTP "+resp.status);
+  if(token!==loadToken)return;
+  let arrBuf=await resp.arrayBuffer();
+  if(token!==loadToken)return;
+  let decoded=await AC.decodeAudioData(arrBuf);
+  if(token!==loadToken)return;
+  showLoad("비트 분석 중...");
+  let built=await buildChart(decoded,token);
+  if(!built||token!==loadToken)return;
+  decoded._src=t.name;audioBuf=decoded;loaded=true;setNowPlaying(t.name, chart.length+" NOTES"); onReady(token);
+ }catch(e){
+  if(e.name==="AbortError"||token!==loadToken)return;
+  loaded=false;showLoad("곡을 불러오지 못했습니다. 다시 시도하거나 메뉴로 돌아가세요.");
+  document.getElementById("loadActions").style.display="block";console.error(e);
+ }finally{if(token===loadToken)loadController=null;}
+}
+function showLoad(msg){document.getElementById("loadSt").textContent=msg;document.getElementById("loadActions").style.display="none";document.getElementById("loadOv").classList.remove("hid");}
+function hideLoad(){document.getElementById("loadOv").classList.add("hid");document.getElementById("loadActions").style.display="none";}
+function onReady(token){if(token!==loadToken)return;hideLoad();let sbtn=document.getElementById("sbtn");sbtn.classList.add("rdy");sbtn.disabled=false;}
+
+const FFT_N=512,FFT_HOP=256,ANALYSIS_RATE=22050;
+function fftMagnitude(re,im,mag){
+ let n=re.length;
+ for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t;}}
+ for(let len=2;len<=n;len<<=1){let angle=-2*Math.PI/len,wr0=Math.cos(angle),wi0=Math.sin(angle);
+  for(let base=0;base<n;base+=len){let wr=1,wi=0,half=len>>1;
+   for(let j=0;j<half;j++){let u=base+j,v=u+half,tr=wr*re[v]-wi*im[v],ti=wr*im[v]+wi*re[v];
+    re[v]=re[u]-tr;im[v]=im[u]-ti;re[u]+=tr;im[u]+=ti;
+    let oldWr=wr,oldWi=wi;wr=oldWr*wr0-oldWi*wi0;wi=oldWr*wi0+oldWi*wr0;
+   }
+  }
+ }
+ for(let i=0;i<mag.length;i++)mag[i]=Math.hypot(re[i],im[i]);
+}
+async function detectOnsets(buf,token){
+ if(token!==loadToken)return null;
+ let srcRate=buf.sampleRate,rate=Math.min(srcRate,ANALYSIS_RATE),analysisSampleCount=Math.floor(buf.duration*rate);
+ if(analysisSampleCount<FFT_N)return [];
+ let frameCount=Math.floor((analysisSampleCount-FFT_N)/FFT_HOP)+1;
+ let channels=buf.numberOfChannels,raws=new Array(channels);
+ for(let c=0;c<channels;c++)raws[c]=buf.getChannelData(c);
+ let re=new Float32Array(FFT_N),im=new Float32Array(FFT_N),mag=new Float32Array(FFT_N/2+1),prev=new Float32Array(FFT_N/2+1);
+ let window=new Float32Array(FFT_N),fluxes=new Float32Array(frameCount),centroids=new Float32Array(frameCount),step=srcRate/rate;
+ for(let i=0;i<FFT_N;i++)window[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FFT_N-1));
+ for(let frame=0;frame<frameCount;frame++){
+  if(token!==loadToken)return null;
+  re.fill(0);im.fill(0);let start=frame*FFT_HOP;
+  for(let j=0;j<FFT_N;j++){let pos=Math.floor((start+j)*step),sample=0;
+   if(pos<Math.floor(buf.length)){for(let c=0;c<channels;c++)sample+=raws[c][pos];sample/=channels;}
+   re[j]=sample*window[j];
+  }
+  fftMagnitude(re,im,mag);let flux=0,weighted=0,total=0;
+  for(let k=1;k<mag.length;k++){let delta=mag[k]-prev[k];if(delta>0)flux+=delta;weighted+=k*rate/FFT_N*mag[k];total+=mag[k];prev[k]=mag[k];}
+  fluxes[frame]=flux;centroids[frame]=total>0?weighted/total:0;
+  if((frame&127)===127){if(token!==loadToken)return null;let pct=Math.min(69,5+Math.floor(65*(frame+1)/frameCount));document.getElementById("loadSt").textContent="분석 중... "+pct+"%";await new Promise(r=>setTimeout(r,0));if(token!==loadToken)return null;}
+ }
+ if(token!==loadToken)return null;
+ document.getElementById("loadSt").textContent="분석 중... 70%";
+ let peaks=[],radius=Math.max(2,Math.round(0.12*rate/FFT_HOP));
+ for(let i=0;i<frameCount;i++){
+  if(token!==loadToken)return null;
+  let lo=Math.max(0,i-radius),hi=Math.min(frameCount-1,i+radius),sum=0,sum2=0,count=hi-lo+1;
+  for(let j=lo;j<=hi;j++){sum+=fluxes[j];sum2+=fluxes[j]*fluxes[j];}
+  let mean=sum/count,std=Math.sqrt(Math.max(0,sum2/count-mean*mean)),threshold=mean+0.8*std;
+  if(fluxes[i]>threshold&&fluxes[i]>=fluxes[Math.max(0,i-1)]&&fluxes[i]>=fluxes[Math.min(frameCount-1,i+1)]&&(peaks.length===0||i*FFT_HOP/rate-peaks[peaks.length-1].t>=0.06))peaks.push({t:i*FFT_HOP/rate,freq:Math.max(0,centroids[i]),flux:fluxes[i]});
+  if((i&511)===511){if(token!==loadToken)return null;document.getElementById("loadSt").textContent="분석 중... "+Math.min(75,70+Math.floor(5*(i+1)/frameCount))+"%";await new Promise(r=>setTimeout(r,0));if(token!==loadToken)return null;}
+ }
+ return token===loadToken?peaks:null;
+}
+function freqToLane(f){if(f<80)f=80;if(f>8000)f=8000;let logMin=Math.log(80),logMax=Math.log(8000),norm=(Math.log(f)-logMin)/(logMax-logMin);return Math.max(0,Math.min(8,Math.round(norm*8)));}
+function chartSeed(buf){
+ let h=2166136261>>>0,raw=buf.numberOfChannels?buf.getChannelData(0):null;
+ let vals=[buf.length>>>0,Math.round(buf.sampleRate)>>>0,diff==="easy"?1:diff==="normal"?2:3];
+ for(let i=0;i<5;i++){let p=raw&&raw.length?Math.min(raw.length-1,Math.floor(raw.length*i/4)):0;vals.push(raw?Math.round(raw[p]*2147483647):0);}
+ for(let v of vals){h^=v>>>0;h=Math.imul(h,16777619)>>>0;}
+ return h>>>0;
+}
+function chartRng(seed){return function(){seed=(seed+0x6D2B79F5)>>>0;let t=seed;t=Math.imul(t^(t>>>15),t|1)>>>0;t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+function weightedLane(freqCounts,previousLane,rng){
+ let target=freqToLane(freqCounts.target),base=[],maxCount=0;
+ for(let count of freqCounts.counts)if(count>maxCount)maxCount=count;
+ for(let lane=0;lane<9;lane++){
+  let distance=Math.abs(lane-target),underuse=(maxCount-freqCounts.counts[lane])/(1+maxCount);
+  base.push(1+1/(1+distance)+underuse);
+ }
+ if(previousLane>=0&&previousLane<9){
+  let minimum=Infinity;
+  for(let lane=0;lane<9;lane++)if(lane!==previousLane&&base[lane]<minimum)minimum=base[lane];
+  base[previousLane]=minimum*0.1;
+ }
+ let total=0;for(let w of base)total+=w;
+ let pick=rng()*total;
+ for(let lane=0;lane<9;lane++){pick-=base[lane];if(pick<0)return lane;}
+ return 8;
+}
+
+async function buildChart(buf,token){
+ if(token!==loadToken)return false;
+ let peaks=await detectOnsets(buf,token);
+ if(peaks===null)return false;
+ let nextTotalDur=buf.duration;
+ let fallbackSource=[];
+ if(nextTotalDur>0.75){
+  for(let t=0.5;t<=nextTotalDur-0.25+1e-9;t+=0.5)
+   fallbackSource.push({t,freq:[220,440,660,880][fallbackSource.length%4],flux:0});
+ }else if(nextTotalDur>0.05){
+  fallbackSource=[{t:nextTotalDur*0.31,freq:220,flux:0},{t:nextTotalDur*0.69,freq:660,flux:0}];
+ }
+ if(nextTotalDur>0.05&&fallbackSource.length<2)
+  fallbackSource=[{t:nextTotalDur*0.31,freq:220,flux:0},{t:nextTotalDur*0.69,freq:660,flux:0}];
+ let sourcePeaks=peaks.length>=8?peaks:fallbackSource;
+ if(token!==loadToken)return false;
+ document.getElementById("loadSt").textContent="분석 중... 78%";
+ await new Promise(r=>setTimeout(r,0));
+ if(token!==loadToken)return false;
+ sourcePeaks.sort((a,b)=>b.flux-a.flux||a.t-b.t);
+ let ratio=diff==="easy"?0.45:(diff==="normal"?0.70:0.95);
+ let topN=Math.round(sourcePeaks.length*ratio);
+ let selected=sourcePeaks.slice(0,topN);
+ selected.sort((a,b)=>a.t-b.t);
+ let rng=chartRng(chartSeed(buf)),counts=[0,0,0,0,0,0,0,0,0],previousLane=-1,nextChart=[];
+ for(let i=0;i<selected.length;i++){
+  let p=selected[i],lane=weightedLane({counts,target:p.freq},previousLane,rng);
+  nextChart.push({t:p.t,lane});counts[lane]++;previousLane=lane;
+  if((i&127)===127){if(token!==loadToken)return false;await new Promise(r=>setTimeout(r,0));if(token!==loadToken)return false;}
+ }
+ if(token!==loadToken)return false;
+ document.getElementById("loadSt").textContent="분석 중... 85%";
+ await new Promise(r=>setTimeout(r,0));
+ if(token!==loadToken)return false;
+ // aggressive balancer
+ let lc=counts.slice(),target=Math.ceil(nextChart.length/9);
+ for(let pass=0;pass<3;pass++){for(let i=nextChart.length-1;i>=0;i--){let n=nextChart[i],l=n.lane;
+  if(lc[l]>target+2){let best=0;for(let j=1;j<9;j++)if(lc[j]<lc[best])best=j;
+   if(lc[best]<target){lc[l]--;lc[best]++;n.lane=best;}}}}
+ for(let i=nextChart.length-1;i>=0;i--){let n=nextChart[i],l=n.lane;
+  if(lc[l]>target+3){let empty=null;for(let j=0;j<9;j++)if(lc[j]<target-2){empty=j;break;}
+   if(empty!==null){lc[l]--;lc[empty]++;n.lane=empty;}}}
+ let minPer=Math.max(8,Math.floor(target*0.7));
+ for(let lane=0;lane<9;lane++){if(lc[lane]<minPer){
+  for(let i=nextChart.length-1;i>=0&&lc[lane]<minPer;i--){let n=nextChart[i],l=n.lane;
+   if(lc[l]>minPer+3){lc[l]--;lc[lane]++;n.lane=lane;}}}}
+ if(token!==loadToken)return false;
+ document.getElementById("loadSt").textContent="분석 중... 92%";
+ await new Promise(r=>setTimeout(r,0));
+ if(token!==loadToken)return false;
+ nextChart.sort((a,b)=>a.t-b.t);
+ let dist=[];for(let i=0;i<9;i++)dist.push(lc[i]);
+ if(token!==loadToken)return false;
+ chart=nextChart;totalDur=nextTotalDur;
+ document.getElementById("loadSt").textContent="채보 완료: "+nextChart.length+"노트 ["+dist.join(",")+"] 100%";
+ return true;
+}
+
+function initMenuUI(){
+ document.querySelectorAll(".diff").forEach(b=>b.onclick=async()=>{document.querySelectorAll(".diff").forEach(x=>x.classList.remove("on"));b.classList.add("on");diff=b.dataset.v;
+  if(loaded&&audioBuf){let token=++loadToken;loaded=false;document.getElementById("sbtn").classList.remove("rdy");document.getElementById("sbtn").disabled=true;showLoad("비트 분석 중...");
+   let built=await buildChart(audioBuf,token);if(!built||token!==loadToken)return;loaded=true;onReady(token);}
+ });
+ document.querySelectorAll(".spd").forEach(b=>b.onclick=()=>{document.querySelectorAll(".spd").forEach(x=>x.classList.remove("on"));b.classList.add("on");spdMul=parseInt(b.dataset.v);});
+ document.getElementById("sbtn").onclick=startGame;
+  document.getElementById("loadRetryBtn").onclick=()=>{
+   if(selectedLocalFile)loadLocalFile(selectedLocalFile);
+   else if(selectedTrackIndex!==null)onTrackChange();
+   else document.getElementById("localFileInput").click();
+  };
+ document.getElementById("loadMenuBtn").onclick=backToMenu;
+ document.getElementById("retryBtn").onclick=()=>{document.getElementById("resultOv").classList.add("hid");startGame();};
+ document.getElementById("menuBtn").onclick=backToMenu;
+ document.getElementById("resBtn").onclick=togglePause;
+ document.getElementById("quitBtn").onclick=backToMenu;
+ let zone=document.getElementById("localDropZone"),input=document.getElementById("localFileInput");
+ zone.onclick=e=>{if(e.target!==input)input.click();};
+ zone.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();input.click();}};
+ input.onchange=()=>{
+  let files=input.files;
+  if(files.length===1)loadLocalFile(files[0]);
+  else rejectLocalSelection(files.length>1?"오디오 파일을 하나만 선택하세요.":"오디오 파일을 선택하세요.");
+  input.value="";
+ };
+ ["dragenter","dragover"].forEach(type=>zone.addEventListener(type,e=>{
+  e.preventDefault();e.stopPropagation();zone.classList.add("drag-active");
+ }));
+ ["dragleave","drop"].forEach(type=>zone.addEventListener(type,e=>{
+  e.preventDefault();e.stopPropagation();zone.classList.remove("drag-active");
+ }));
+ zone.ondrop=e=>{
+  let files=e.dataTransfer.files;
+  if(files.length===1)loadLocalFile(files[0]);
+  else rejectLocalSelection("오디오 파일을 하나만 선택하세요.");
+ };
+ window.addEventListener("dragover",e=>{e.preventDefault();e.stopPropagation();});
+ window.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();});
+}
+
+async function startGame(){
+ if(!loaded||!chart.length||starting||running)return;
+ starting=true;let token=++sessionToken;
+ mode="game";score=0;combo=0;maxCombo=0;npf=0;ngr=0;nms=0;chartIdx=0;
+ activeNotes=[];judges=[];held.clear();audioEnded=false;paused=false;
+ try{
+  await AC.resume();
+  if(token!==sessionToken||!starting)return;
+  sourceNode=AC.createBufferSource();sourceNode.buffer=audioBuf;
+  let gain=AC.createGain();gain.gain.value=0.5;
+  sourceNode.connect(gain);gain.connect(AC.destination);
+  sourceNode.onended=()=>{if(token===sessionToken)audioEnded=true;};
+  sourceNode.start(0);songStart=AC.currentTime;running=true;
+  document.getElementById("menuOv").classList.add("hid");document.getElementById("resultOv").classList.add("hid");document.getElementById("pauseOv").classList.add("hid"); setNowPlaying(audioBuf&&audioBuf._src, diff.toUpperCase()+" · x"+spdMul);
+ }finally{starting=false;}
+}
+function togglePause(){
+ if(!running)return;paused=!paused;
+ if(paused){AC.suspend();document.getElementById("pauseOv").classList.remove("hid");}
+ else{AC.resume();document.getElementById("pauseOv").classList.add("hid");}
+}
+function backToMenu(){
+ cancelPendingLoad();selectedTrackIndex=null;clearLocalFile();hideLoad();
+ sessionToken++;
+ if(sourceNode){sourceNode.onended=null;try{sourceNode.stop();}catch(e){}sourceNode=null;}
+ running=false;paused=false;starting=false;audioEnded=false;curOfs=0;songStart=0;
+ activeNotes=[];judges=[];held.clear();score=0;combo=0;maxCombo=0;npf=0;ngr=0;nms=0;chartIdx=0;
+ loaded=false;audioBuf=null;chart=[];mode="menu";
+ document.getElementById("trackSel").value="";document.getElementById("tinfo").textContent=""; hideNowPlaying(); renderCovers();
+ document.getElementById("sbtn").classList.remove("rdy");document.getElementById("sbtn").disabled=true;
+ document.getElementById("menuOv").classList.remove("hid");document.getElementById("pauseOv").classList.add("hid");document.getElementById("resultOv").classList.add("hid");
+}
+function endGame(){
+ if(!running)return;
+ running=false;mode="result";sessionToken++;if(sourceNode){sourceNode.onended=null;try{sourceNode.stop();}catch(e){}sourceNode=null;}
+ paused=false;starting=false;audioEnded=false;held.clear();judges=[];let total=npf+ngr+nms,acc=total>0?Math.round((npf*100+ngr*50)/total):0;
+ let grade="F",gCls="gF";if(acc>=GRADE_THRESHOLDS.S){grade="S";gCls="gS";}else if(acc>=GRADE_THRESHOLDS.A){grade="A";gCls="gA";}else if(acc>=GRADE_THRESHOLDS.B){grade="B";gCls="gB";}else if(acc>=GRADE_THRESHOLDS.C){grade="C";gCls="gC";}
+ document.getElementById("resultOv").classList.remove("hid");document.getElementById("grade").textContent=grade;document.getElementById("grade").className=gCls;
+ document.getElementById("rSc").textContent=score;document.getElementById("rCb").textContent=maxCombo;
+ document.getElementById("rPf").textContent=npf;document.getElementById("rGr").textContent=ngr;document.getElementById("rMs").textContent=nms;
+ document.getElementById("rAc").textContent=acc+"%";
+}
+
+function loop(ts){
+ if(running&&!paused){
+  curOfs=AC.currentTime-songStart;if(curOfs<0)curOfs=0;
+  let preTime=1.8*(5/spdMul);
+  while(chartIdx<chart.length&&chart[chartIdx].t<=curOfs+preTime){
+   let n=chart[chartIdx++];activeNotes.push({...n,y:-30,hit:false,missed:false,resolvedAt:null});
+  }
+  let hy=lay().hy;
+  for(let n of activeNotes){
+   let dt=n.t-curOfs;n.y=hy-dt*120*(spdMul/5);
+   if(n.resolvedAt===null&&curOfs-n.t>JUDGEMENT.GREAT/1000){n.missed=true;n.resolvedAt=performance.now();nms++;combo=0;judges.push({lane:n.lane,type:"miss",life:20});}
+  }
+  let now=performance.now();activeNotes=activeNotes.filter(n=>n.resolvedAt===null||now-n.resolvedAt<NOTE_RESOLVED_HOLD_MS);
+  judges=judges.filter(j=>{j.life--;return j.life>0;});
+  if(chartIdx>=chart.length&&activeNotes.length===0&&(audioEnded||curOfs>totalDur+2)){endGame();}
+ }
+ render();
+ ani=requestAnimationFrame(loop);
+}
+
+function hitLaneAt(clientX){
+ let rect=cv.getBoundingClientRect();
+ let x=(clientX-rect.left)*(W/rect.width);
+ let L=lay();
+ if(x<L.x0||x>L.x0+L.pw) return -1;
+ return Math.max(0,Math.min(8,Math.floor((x-L.x0)/L.lw)));
+}
+function tapLane(lane){
+ if(lane<0||mode!=="game"||!running||paused) return;
+ held.add(lane);
+ let bestN=null,bestDist=999;
+ for(let n of activeNotes){if(n.resolvedAt!==null||n.lane!==lane)continue;let dt=Math.abs(n.t-curOfs);if(dt<bestDist){bestDist=dt;bestN=n;}}
+ if(!bestN||bestDist*1000>JUDGEMENT.GREAT){setTimeout(()=>held.delete(lane),90);return;}
+ let dtMs=bestDist*1000;
+ if(dtMs<=JUDGEMENT.PERFECT){bestN.hit=true;bestN.resolvedAt=performance.now();score+=300+combo*2;combo++;npf++;if(combo>maxCombo)maxCombo=combo;judges.push({lane,type:"perfect",life:20});}
+ else{bestN.hit=true;bestN.resolvedAt=performance.now();score+=150+combo;combo++;ngr++;if(combo>maxCombo)maxCombo=combo;judges.push({lane,type:"great",life:20});}
+ setTimeout(()=>held.delete(lane),90);
+}
+function render(){
+ ctx.fillStyle="#06060f";ctx.fillRect(0,0,W,H);
+ if(ART.hero&&ART.hero.complete&&ART.hero.naturalWidth){
+  let iw=ART.hero.naturalWidth, ih=ART.hero.naturalHeight, s=Math.max(W/iw,H/ih);
+  ctx.globalAlpha=.55; ctx.drawImage(ART.hero,(W-iw*s)/2,(H-ih*s)/2,iw*s,ih*s); ctx.globalAlpha=1;
+  let veil=ctx.createLinearGradient(0,0,0,H); veil.addColorStop(0,"#06060f88"); veil.addColorStop(.45,"#06060f55"); veil.addColorStop(1,"#06060fdd");
+  ctx.fillStyle=veil; ctx.fillRect(0,0,W,H);
+ }else{
+  let grad=ctx.createLinearGradient(0,0,0,H);grad.addColorStop(0,"#06060f");grad.addColorStop(0.5,"#080818");grad.addColorStop(1,"#0a0a20");
+  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+ }
+ let L=lay(),x0=L.x0,lw=L.lw,hy=L.hy,pw=L.pw;
+ // grid lines on background
+ ctx.strokeStyle="#ffffff04";ctx.lineWidth=0.5;
+ for(let x=x0;x<=x0+pw;x+=lw){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,hy+90);ctx.stroke();}
+ for(let y=0;y<hy;y+=40){ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x0+pw,y);ctx.stroke();}
+ // lane backgrounds (subtle)
+ for(let i=0;i<9;i++){
+  let x=x0+i*lw,alpha=i===4?0.12:0.04;
+  ctx.fillStyle=LANE_CLR[i]+Math.floor(alpha*255).toString(16).padStart(2,"0");ctx.fillRect(x,0,lw,hy+90);
+ }
+ // hit line with glow
+ ctx.strokeStyle="#ffd700";ctx.lineWidth=2;ctx.shadowColor="#ffd70088";ctx.shadowBlur=12;
+ ctx.beginPath();ctx.moveTo(x0,hy);ctx.lineTo(x0+pw,hy);ctx.stroke();
+ ctx.shadowBlur=0;ctx.fillStyle="#ffd700";ctx.font="bold 10px monospace";ctx.textAlign="right";ctx.fillText("▼",x0+pw-8,hy-4);
+ // notes
+ for(let n of activeNotes){
+  let x=x0+n.lane*lw,clr=LANE_CLR[n.lane];
+  ctx.globalAlpha=n.resolvedAt===null?1:.3;
+  ctx.fillStyle=n.hit?clr+"33":clr;
+  ctx.shadowColor=n.hit?"transparent":clr+"aa";ctx.shadowBlur=n.hit?0:16;
+  let nh=Math.max(5,15*(spdMul/5));roundRect(x+4,n.y-nh/2,lw-8,nh,3);ctx.fill();
+  // key label on note
+  ctx.shadowBlur=0;ctx.fillStyle="#fff";ctx.font="bold 11px 'JetBrains Mono',monospace";ctx.textAlign="center";ctx.fillText(KEY_LBL[n.lane],x+lw/2,n.y+5);
+  ctx.globalAlpha=1;
+ }
+ ctx.shadowBlur=0;
+ // judges
+ for(let j of judges){
+  let x=x0+j.lane*lw,a=j.life/20;
+  ctx.globalAlpha=a;
+  if(j.type==="perfect"){ctx.fillStyle="#ffd700";ctx.font="bold 15px 'JetBrains Mono',monospace";ctx.textAlign="center";ctx.fillText("PERFECT",x+lw/2,hy-20);}
+  else if(j.type==="great"){ctx.fillStyle="#00e5ff";ctx.font="bold 13px 'JetBrains Mono',monospace";ctx.textAlign="center";ctx.fillText("GREAT",x+lw/2,hy-16);}
+  else{ctx.fillStyle="#ff4a4a";ctx.font="bold 13px 'JetBrains Mono',monospace";ctx.textAlign="center";ctx.fillText("MISS",x+lw/2,hy-12);}
+  ctx.globalAlpha=1;
+ }
+ // lane labels + pressed glow
+ for(let i=0;i<9;i++){
+  let x=x0+i*lw,clr=LANE_CLR[i];
+  ctx.fillStyle=held.has(i)?clr:clr+"44";ctx.font="bold 12px 'JetBrains Mono',monospace";ctx.textAlign="center";
+  ctx.fillText(KEY_LBL[i],x+lw/2,hy+30);
+  if(held.has(i)){
+   let g=ctx.createLinearGradient(x,hy,x,hy+50);g.addColorStop(0,clr+"44");g.addColorStop(1,"transparent");
+   ctx.fillStyle=g;ctx.fillRect(x,hy,lw,50);
+  }
+ }
+ // score display
+ ctx.fillStyle="#00e5ff";ctx.shadowColor="#00e5ff44";ctx.shadowBlur=10;
+ ctx.font="bold 28px 'Orbitron',sans-serif";ctx.textAlign="right";ctx.fillText(String(score).padStart(8,"0"),x0+pw-10,42);
+ ctx.shadowBlur=0;
+ ctx.fillStyle="#ffd700";ctx.font="bold 16px 'JetBrains Mono',monospace";ctx.fillText(combo+" COMBO",x0+pw-10,65);
+ // bottom key bar
+ let hintW=Math.min(pw,640),hintX=x0+(pw-hintW)/2;
+ for(let i=0;i<9;i++){
+  let x=hintX+(hintW/9)*i,w=hintW/9,clr=LANE_CLR[i];
+  ctx.fillStyle=held.has(i)?clr+"22":"#0c0c1a";
+  ctx.strokeStyle=held.has(i)?clr+"66":"#1e1e3a44";ctx.lineWidth=1;
+  roundRect(x+2,hy+46,w-4,24,2);ctx.fill();ctx.stroke();
+  ctx.fillStyle=held.has(i)?clr:clr+"88";ctx.font="bold 11px 'JetBrains Mono',monospace";ctx.textAlign="center";
+  ctx.fillText(KEY_LBL[i],x+w/2,hy+63);
+ }
+}
+
+function roundRect(x,y,w,h,r){
+ ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);
+ ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);
+ ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+// Input
+window.addEventListener("keydown",e=>{
+ if(e.repeat)return;let k=e.key.toLowerCase();
+ if(k==="escape"){if(mode==="game"&&running){e.preventDefault();togglePause();}return;}
+ if(mode!=="game"||!running||paused)return;
+ let lane=keyMap[k];if(lane===undefined)return;
+ e.preventDefault();
+ held.add(lane);
+ let bestN=null,bestDist=999;
+ for(let n of activeNotes){if(n.resolvedAt!==null||n.lane!==lane)continue;let dt=Math.abs(n.t-curOfs);if(dt<bestDist){bestDist=dt;bestN=n;}}
+ if(!bestN||bestDist*1000>JUDGEMENT.GREAT)return;
+ let dtMs=bestDist*1000;
+ if(dtMs<=JUDGEMENT.PERFECT){bestN.hit=true;bestN.resolvedAt=performance.now();score+=300+combo*2;combo++;npf++;if(combo>maxCombo)maxCombo=combo;judges.push({lane,type:"perfect",life:20});}
+ else{bestN.hit=true;bestN.resolvedAt=performance.now();score+=150+combo;combo++;ngr++;if(combo>maxCombo)maxCombo=combo;judges.push({lane,type:"great",life:20});}
+});
+window.addEventListener("keyup",e=>{
+ let k=e.key.toLowerCase(),lane=keyMap[k];
+ if(lane!==undefined){if(mode==="game"&&running)e.preventDefault();held.delete(lane);}
+});
+function pauseForFocusLoss(){
+ held.clear();
+ if(running&&!paused)togglePause();
+}
+window.addEventListener("blur",pauseForFocusLoss);
+document.addEventListener("visibilitychange",()=>{if(document.hidden)pauseForFocusLoss();});
+document.addEventListener("click",()=>{if(AC.state==="suspended")AC.resume();},{once:true});
+
+cv.addEventListener("pointerdown",e=>{
+ if(mode!=="game"||!running||paused) return;
+ e.preventDefault();
+ tapLane(hitLaneAt(e.clientX));
+});
+
+</script></body></html>
